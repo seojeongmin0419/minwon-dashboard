@@ -81,6 +81,27 @@
   .filters input { width: 180px; }
   select.inline { width: auto; padding: 3px 6px; font-size: 13px; }
 
+  .field.wide { grid-column: 1 / -1; }
+  .field textarea, .draft-box {
+    width: 100%; padding: 8px 10px; border: 1px solid #cdd3dd; border-radius: 6px; font: inherit; color: var(--ink); resize: vertical;
+  }
+  .field textarea { min-height: 60px; }
+  .field textarea:focus { outline: 2px solid #9db8de; border-color: var(--brand); }
+  td.summary { max-width: 260px; overflow: hidden; text-overflow: ellipsis; color: #3a4357; }
+  button.draft { color: var(--brand); border-color: #b9cbe6; }
+
+  dialog { border: none; border-radius: 12px; padding: 0; width: min(760px, calc(100vw - 32px)); box-shadow: 0 20px 50px rgba(15, 25, 45, .3); }
+  dialog::backdrop { background: rgba(20, 28, 44, .45); }
+  .dlg-head { background: var(--brand); color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .dlg-head h3 { margin: 0; font-size: 16px; }
+  .dlg-head span { font-size: 13px; opacity: .9; }
+  .dlg-body { padding: 16px 20px; display: grid; gap: 10px; }
+  .dlg-note { font-size: 12px; color: var(--muted); background: var(--head); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .dlg-note b { color: var(--warn); }
+  .draft-box { min-height: 380px; line-height: 1.65; font-size: 14px; }
+  .dlg-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 20px 16px; flex-wrap: wrap; }
+  .copied { font-size: 13px; color: var(--s3); font-weight: 700; }
+
   footer { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
 
   @media (max-width: 1000px) {
@@ -128,6 +149,7 @@
       <div class="field"><label for="fPhone">연락처</label><input id="fPhone" placeholder="010-0000-0000"></div>
       <div class="field"><label for="fType">민원유형</label><select id="fType"></select></div>
       <div class="field"><label for="fStatus">상태</label><select id="fStatus"></select></div>
+      <div class="field wide"><label for="fSummary">민원 내용(요지)</label><textarea id="fSummary" placeholder="예: ○○로 ○○번지 앞 도로에 입간판이 허가 없이 설치되어 보행에 불편"></textarea></div>
       <div class="formfoot">
         <div>
           <div class="preview" id="preview"></div>
@@ -148,12 +170,32 @@
       <span class="filters">
         <select id="filterType"><option value="">전체 유형</option></select>
         <select id="filterStatus"><option value="">전체 상태</option></select>
-        <input id="search" placeholder="접수번호·민원인 검색">
+        <input id="search" placeholder="접수번호·민원인·내용 검색">
       </span>
     </h2>
     <div class="scroll"><table id="listTable"></table></div>
   </section>
 </main>
+
+<!-- 답변 초안 창 -->
+<dialog id="draftDlg">
+  <div class="dlg-head"><h3>민원 답변 초안</h3><span id="draftMeta"></span></div>
+  <div class="dlg-body">
+    <div class="dlg-note">
+      외부로 보내지 않고 이 화면 안에서 표준 문안으로 만든 초안입니다. <b>[ ] 표시 부분</b>을 실제 내용으로 고쳐 쓰세요.
+      발송 전 결재: 담당자 → 팀장
+    </div>
+    <textarea class="draft-box" id="draftText" spellcheck="false"></textarea>
+  </div>
+  <div class="dlg-foot">
+    <span class="copied" id="copied"></span>
+    <div class="btns">
+      <button type="button" id="redraftBtn">초안 다시 만들기</button>
+      <button type="button" id="closeDlg">닫기</button>
+      <button type="button" class="primary" id="copyBtn">복사</button>
+    </div>
+  </div>
+</dialog>
 
 <footer>
   <span>입력한 데이터는 이 PC의 브라우저에 저장됩니다. 브라우저 데이터를 지우면 함께 삭제됩니다.</span>
@@ -177,25 +219,95 @@ const KEY = "minwon-board-v1"; // 브라우저 저장 키
 
 // 더미 데이터(더미데이터.csv와 동일, 처리기한은 자동 계산)
 const SEED = [
-  ["2026-0401","2026-10-20","김도윤","010-2381-4402","점용허가 신청·문의","완료"],
-  ["2026-0402","2026-10-22","(주)한빛통신","02-555-0192","무단점용 신고","완료"],
-  ["2026-0403","2026-10-27","이수진","010-7720-1185","점용료 이의·감면","처리중"],
-  ["2026-0404","2026-10-28","(주)대성가스","031-778-2210","허가 연장·변경","처리중"],
-  ["2026-0405","2026-10-29","박준혁","010-9043-6617","점용허가 신청·문의","처리중"],
-  ["2026-0406","2026-11-02","최민서","010-3356-7781","무단점용 신고","접수"],
-  ["2026-0407","2026-11-03","정하늘","010-6612-0934","기타","완료"],
-  ["2026-0408","2026-11-04","강서연","010-4478-2290","무단점용 신고","처리중"],
-  ["2026-0409","2026-11-05","(주)그린주유소","031-762-4471","점용허가 신청·문의","접수"],
-  ["2026-0410","2026-11-05","윤재원","010-8821-5530","기타","접수"],
-  ["2026-0411","2026-11-06","한지우","010-2290-6648","점용료 이의·감면","처리중"],
-  ["2026-0412","2026-11-06","(주)미래전력","02-3442-8800","허가 연장·변경","완료"],
-  ["2026-0413","2026-11-09","오승민","010-5517-3302","무단점용 신고","접수"],
-  ["2026-0414","2026-11-09","서예린","010-6630-9915","점용허가 신청·문의","접수"],
-  ["2026-0415","2026-11-10","(주)하나광고","031-791-3365","허가 연장·변경","접수"],
-  ["2026-0416","2026-11-10","임태호","010-1148-7726","점용료 이의·감면","접수"],
-  ["2026-0417","2026-11-11","배소율","010-9925-4418","기타","접수"],
-  ["2026-0418","2026-11-11","신동현","010-3384-5506","점용허가 신청·문의","접수"],
-].map(([no, date, name, phone, type, status]) => ({ no, date, name, phone, type, status }));
+  ["2026-0401","2026-10-20","김도윤","010-2381-4402","점용허가 신청·문의","완료","상가 앞 도로에 진입로 설치를 위한 점용허가 절차와 구비서류 문의"],
+  ["2026-0402","2026-10-22","(주)한빛통신","02-555-0192","무단점용 신고","완료","국도변 갓길에 타 업체 자재가 2주째 무단 적치되어 통행 방해"],
+  ["2026-0403","2026-10-27","이수진","010-7720-1185","점용료 이의·감면","처리중","올해 점용료가 작년보다 크게 올라 산정 근거 확인과 재산정 요청"],
+  ["2026-0404","2026-10-28","(주)대성가스","031-778-2210","허가 연장·변경","처리중","가스관 매설 점용허가 기간 만료 예정으로 2년 연장 신청"],
+  ["2026-0405","2026-10-29","박준혁","010-9043-6617","점용허가 신청·문의","처리중","주택 진출입로 개설을 위한 도로점용 허가 신청"],
+  ["2026-0406","2026-11-02","최민서","010-3356-7781","무단점용 신고","접수","교차로 인근 보도에 대형 입간판이 설치되어 보행 불편"],
+  ["2026-0407","2026-11-03","정하늘","010-6612-0934","기타","완료","점용허가증 분실로 재발급 방법 문의"],
+  ["2026-0408","2026-11-04","강서연","010-4478-2290","무단점용 신고","처리중","도로변에 컨테이너가 허가 없이 설치되어 시야 방해"],
+  ["2026-0409","2026-11-05","(주)그린주유소","031-762-4471","점용허가 신청·문의","접수","주유소 진출입로 확장에 따른 점용 면적 변경 가능 여부 문의"],
+  ["2026-0410","2026-11-05","윤재원","010-8821-5530","기타","접수","점용료 납입고지서를 받지 못해 납부 방법 문의"],
+  ["2026-0411","2026-11-06","한지우","010-2290-6648","점용료 이의·감면","처리중","공익 목적 시설로 점용료 감면 대상인지 확인 요청"],
+  ["2026-0412","2026-11-06","(주)미래전력","02-3442-8800","허가 연장·변경","완료","전주 위치 이설에 따른 점용 위치 변경 신청"],
+  ["2026-0413","2026-11-09","오승민","010-5517-3302","무단점용 신고","접수","공사 현장 가설울타리가 허가 범위를 넘어 차로까지 설치됨"],
+  ["2026-0414","2026-11-09","서예린","010-6630-9915","점용허가 신청·문의","접수","카페 앞 도로에 야외 테이블 설치 가능 여부 문의"],
+  ["2026-0415","2026-11-10","(주)하나광고","031-791-3365","허가 연장·변경","접수","옥외광고물 점용허가 기간 1년 연장 신청"],
+  ["2026-0416","2026-11-10","임태호","010-1148-7726","점용료 이의·감면","접수","점용 면적이 실제보다 넓게 산정되었다며 이의 제기"],
+  ["2026-0417","2026-11-11","배소율","010-9925-4418","기타","접수","점용허가 담당 부서와 연락처 문의"],
+  ["2026-0418","2026-11-11","신동현","010-3384-5506","점용허가 신청·문의","접수","농지 진입로 개설을 위한 점용허가 신청 절차 문의"],
+].map(([no, date, name, phone, type, status, summary]) => ({ no, date, name, phone, type, status, summary }));
+
+// ===== 답변 초안 표준 문안 (참고: 민원답변_톤_표준안내문) =====
+// 구성: 인사 → 공감·사과 → 처리 결과/다음 절차 → 서류·기한·연락처 → 맺음 인사
+const DRAFT = {
+  "점용허가 신청·문의": {
+    empathy: "도로점용 허가와 관련하여 문의해 주셔서 감사합니다. 절차가 복잡하게 느껴지셨을 텐데, 필요한 내용을 정리해 안내해 드립니다.",
+    next: "신청하신 내용은 현장 확인과 서류 검토를 거쳐 허가 여부를 결정하며, 결과는 처리기한 내에 다시 안내해 드리겠습니다.",
+    docs: ["점용허가 신청서", "사업계획서", "도면", "위치도"],
+  },
+  "점용료 이의·감면": {
+    empathy: "점용료 부과와 관련하여 불편을 드려 죄송합니다. 말씀하신 내용을 꼼꼼히 확인하겠습니다.",
+    next: "제기하신 내용은 산정 근거(점용 면적, 공시지가, 감면 요건)를 다시 검토하여, 재산정이 필요한 경우 수정된 고지서와 함께 결과를 안내해 드리겠습니다.",
+    docs: ["이의(감면) 사유를 적은 신청서", "감면 대상임을 확인할 수 있는 증빙자료", "받으신 납입고지서 사본"],
+  },
+  "무단점용 신고": {
+    empathy: "도로 이용에 불편을 겪으셨을 텐데, 신고해 주셔서 감사합니다.",
+    next: "신고하신 장소는 현장을 확인한 뒤, 허가 없이 설치된 시설물로 확인되면 점용자에게 원상회복 등 필요한 조치를 요청하겠습니다. 조치 결과는 처리기한 내에 다시 안내해 드리겠습니다.",
+    docs: [],
+  },
+  "허가 연장·변경": {
+    empathy: "점용허가 연장·변경과 관련하여 문의해 주셔서 감사합니다.",
+    next: "신청하신 연장(변경) 내용은 기존 허가 조건과 현장 여건을 검토한 뒤 결과를 안내해 드리겠습니다. 허가 기간이 끝나기 전에 신청해 주시면 신속히 처리하겠습니다.",
+    docs: ["연장(변경) 신청서", "변경 내용이 표시된 도면", "기존 점용허가증 사본"],
+  },
+  "기타": {
+    empathy: "문의해 주셔서 감사합니다. 불편을 드린 점이 있다면 양해 부탁드립니다.",
+    next: "문의하신 내용을 확인하여 안내해 드리겠습니다.",
+    docs: [],
+  },
+};
+const ORG = { office: "한국도로공사 ○○지사", team: "도로안전부", center: "고객센터 1588-2504" };
+
+function koDate(s) { const [y, m, d] = s.split("-").map(Number); return `${y}. ${m}. ${d}.(${weekday(s)})`; }
+
+function makeDraft(r) {
+  const t = DRAFT[r.type] || DRAFT["기타"];
+  const dl = deadlineOf(r);
+  const about = r.summary ? `「${r.summary}」` : "[민원 요지]";
+  const lines = [];
+  lines.push(`안녕하십니까, ${ORG.office}입니다.`);
+  lines.push("");
+  lines.push(`${r.name} 고객님께서 ${koDate(r.date)} 접수하신 민원(접수번호 ${r.no}) ${about} 건에 대해 답변드립니다.`);
+  lines.push(t.empathy);
+  lines.push("");
+  if (r.status === "완료") {
+    lines.push("요청하신 내용은 다음과 같이 처리되었습니다.");
+    lines.push("[처리 결과를 적어 주세요]");
+  } else {
+    lines.push(t.next);
+    if (daysLeft(r) < 0) {
+      lines.push(`안내해 드리기로 한 기한(${koDate(dl)})보다 처리가 늦어져 죄송합니다. 현재 '${r.status}' 단계이며, [새 안내 예정일]까지 처리 결과를 꼭 안내해 드리겠습니다.`);
+    } else {
+      lines.push(`현재 '${r.status}' 단계이며, ${koDate(dl)}까지 처리 결과를 안내해 드리겠습니다.`);
+    }
+    lines.push("[추가로 안내할 내용이 있으면 적어 주세요]");
+  }
+  lines.push("");
+  if (t.docs.length) {
+    lines.push("제출하실 서류는 다음과 같습니다.");
+    t.docs.forEach((d, i) => lines.push(`${"①②③④⑤⑥"[i]} ${d}`));
+    lines.push("");
+  }
+  lines.push(`궁금하신 점은 ${ORG.team} 담당자([연락처])에게 연락 주시면 자세히 안내해 드리겠습니다.`);
+  lines.push("");
+  lines.push("고객님의 안전한 운행을 기원합니다. 감사합니다.");
+  lines.push("");
+  lines.push(`${ORG.office} ${ORG.team} 드림`);
+  lines.push(`문의: ${ORG.center}`);
+  return lines.join("\n");
+}
 
 // ===== 날짜 계산 =====
 const DAY = 864e5;
@@ -236,6 +348,13 @@ function save() {
   catch (e) { alert("브라우저에 저장하지 못했습니다. 이 창을 닫으면 입력 내용이 사라질 수 있습니다."); }
 }
 let data = load();
+// 이전 버전에서 저장된 샘플 건에는 민원 내용이 없으므로 채워 넣는다
+data.forEach(r => {
+  if (r.summary === undefined) {
+    const s = SEED.find(x => x.no === r.no && x.name === r.name);
+    r.summary = s ? s.summary : "";
+  }
+});
 save();
 
 // ===== 화면 =====
@@ -284,17 +403,18 @@ function renderTypes() {
 function renderList() {
   const ft = $("filterType").value, fs = $("filterStatus").value, q = $("search").value.trim().toLowerCase();
   const rows = data
-    .filter(r => (!ft || r.type === ft) && (!fs || r.status === fs) && (!q || r.no.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)))
+    .filter(r => (!ft || r.type === ft) && (!fs || r.status === fs) && (!q || [r.no, r.name, r.summary].some(v => String(v ?? "").toLowerCase().includes(q))))
     .sort((a, b) => b.date.localeCompare(a.date) || b.no.localeCompare(a.no));
   $("listCount").textContent = `${rows.length}건 / 전체 ${data.length}건`;
-  const head = "<thead><tr><th>접수번호</th><th>접수일</th><th>민원인</th><th>연락처</th><th>민원유형</th><th>상태</th><th>처리기한</th><th class='n'>남은 기한</th><th></th><th>관리</th></tr></thead>";
+  const head = "<thead><tr><th>접수번호</th><th>접수일</th><th>민원인</th><th>연락처</th><th>민원유형</th><th>민원 내용(요지)</th><th>상태</th><th>처리기한</th><th class='n'>남은 기한</th><th></th><th>관리</th></tr></thead>";
   const body = rows.length ? rows.map(r => {
     const j = judge(r);
     const sel = `<select class="inline" data-status="${esc(r.no)}">${STATUSES.map(s => `<option${s === r.status ? " selected" : ""}>${s}</option>`).join("")}</select>`;
     return `<tr class="${j ? "row-" + j : ""}"><td>${esc(r.no)}</td><td>${r.date}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.type)}</td>` +
+      `<td class="summary" title="${esc(r.summary)}">${esc(r.summary) || '<span style="color:var(--muted)">—</span>'}</td>` +
       `<td>${sel}</td><td>${deadlineOf(r)}</td><td class="n">${leftText(r)}</td><td>${judgeBadge(j)}</td>` +
-      `<td><button class="small" data-edit="${esc(r.no)}">수정</button> <button class="small danger" data-del="${esc(r.no)}">삭제</button></td></tr>`;
-  }).join("") : `<tr><td colspan="10" class="empty">조건에 맞는 민원이 없습니다.</td></tr>`;
+      `<td><button class="small draft" data-draft="${esc(r.no)}">답변 초안</button> <button class="small" data-edit="${esc(r.no)}">수정</button> <button class="small danger" data-del="${esc(r.no)}">삭제</button></td></tr>`;
+  }).join("") : `<tr><td colspan="11" class="empty">조건에 맞는 민원이 없습니다.</td></tr>`;
   $("listTable").innerHTML = head + "<tbody>" + body + "</tbody>";
 }
 
@@ -328,6 +448,7 @@ function startEdit(no) {
   editingNo = no;
   $("fNo").value = r.no; $("fDate").value = r.date; $("fName").value = r.name;
   $("fPhone").value = r.phone; $("fType").value = r.type; $("fStatus").value = r.status;
+  $("fSummary").value = r.summary || "";
   $("submitBtn").textContent = "수정 저장";
   $("cancelBtn").style.display = "";
   $("formPanel").classList.add("is-editing");
@@ -342,6 +463,7 @@ $("entryForm").addEventListener("submit", e => {
   const rec = {
     no: $("fNo").value.trim(), date: $("fDate").value, name: $("fName").value.trim(),
     phone: $("fPhone").value.trim(), type: $("fType").value, status: $("fStatus").value,
+    summary: $("fSummary").value.trim(),
   };
   if (!rec.no || !rec.date || !rec.name) { $("msg").textContent = "접수번호, 접수일, 민원인 성명은 꼭 입력해 주세요."; return; }
   if (data.some(r => r.no === rec.no && r.no !== editingNo)) { $("msg").textContent = `접수번호 ${rec.no}은(는) 이미 있습니다.`; return; }
@@ -361,7 +483,8 @@ $("listTable").addEventListener("change", e => {
   if (r) { r.status = e.target.value; save(); renderAll(); }
 });
 $("listTable").addEventListener("click", e => {
-  const ed = e.target.dataset.edit, del = e.target.dataset.del;
+  const ed = e.target.dataset.edit, del = e.target.dataset.del, dr = e.target.dataset.draft;
+  if (dr !== undefined) openDraft(dr);
   if (ed !== undefined) startEdit(ed);
   if (del !== undefined && confirm(`접수번호 ${del} 민원을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) {
     data = data.filter(r => r.no !== del);
@@ -374,6 +497,30 @@ $("search").addEventListener("input", renderList);
 $("resetBtn").addEventListener("click", () => {
   if (!confirm("지금까지 입력한 내용을 모두 지우고 샘플 데이터 18건으로 되돌릴까요?")) return;
   data = SEED.map(r => ({ ...r })); save(); resetForm(); renderAll();
+});
+
+// ===== 답변 초안 창 =====
+let draftNo = null;
+function openDraft(no) {
+  const r = data.find(x => x.no === no);
+  if (!r) return;
+  draftNo = no;
+  $("draftMeta").textContent = `${r.no} · ${r.name} · ${r.type} · ${r.status}`;
+  $("draftText").value = makeDraft(r);
+  $("copied").textContent = "";
+  $("draftDlg").showModal();
+  $("draftText").scrollTop = 0;
+}
+$("closeDlg").addEventListener("click", () => $("draftDlg").close());
+$("redraftBtn").addEventListener("click", () => {
+  const r = data.find(x => x.no === draftNo);
+  if (r && confirm("고친 내용을 지우고 처음 초안으로 되돌릴까요?")) { $("draftText").value = makeDraft(r); $("copied").textContent = ""; }
+});
+$("copyBtn").addEventListener("click", async () => {
+  const text = $("draftText").value;
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) { $("draftText").select(); document.execCommand("copy"); }
+  $("copied").textContent = "복사했습니다. 붙여넣기(Ctrl+V)로 쓰세요.";
 });
 
 // ===== 시작 =====
