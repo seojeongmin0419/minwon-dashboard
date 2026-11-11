@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>민원 처리 현황판</title>
+<style>
+  :root {
+    --bg: #f3f5f8; --panel: #ffffff; --ink: #1c2433; --muted: #687387; --line: #e2e6ed; --head: #f8f9fb;
+    --brand: #1f4e8c;
+    --s1: #6b7385; --s1-soft: #eef0f4;   /* 접수 */
+    --s2: #2b6cb0; --s2-soft: #e5eef9;   /* 처리중 */
+    --s3: #2f8a57; --s3-soft: #e4f3ea;   /* 완료 */
+    --warn: #c76a12; --warn-soft: #fdf0e1;  /* 임박 */
+    --danger: #c8372d; --danger-soft: #fbe8e6; /* 기한초과 */
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", sans-serif; }
+  header { background: var(--brand); color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: -0.3px; }
+  header .sub { font-size: 13px; opacity: .88; }
+  main { max-width: 1240px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 16px; }
+
+  .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px; padding: 12px 16px; }
+  .card .label { color: var(--muted); font-size: 13px; }
+  .card .num { font-size: 30px; font-weight: 700; color: var(--c); font-variant-numeric: tabular-nums; }
+  .card .num small { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 2px; }
+
+  .grid2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .panel h2 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .panel h2 .hint { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .scroll { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { background: var(--head); color: var(--muted); font-size: 12px; font-weight: 600; }
+  .n { text-align: right; font-variant-numeric: tabular-nums; }
+  tfoot td { font-weight: 700; border-bottom: none; background: var(--head); }
+  tr.row-over td { background: #fff7f6; }
+  tr.row-due td { background: #fffaf3; }
+  .empty { color: var(--muted); text-align: center; padding: 24px 8px; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .b-over { background: var(--danger-soft); color: var(--danger); }
+  .b-due { background: var(--warn-soft); color: var(--warn); }
+  .b-s1 { background: var(--s1-soft); color: var(--s1); }
+  .b-s2 { background: var(--s2-soft); color: var(--s2); }
+  .b-s3 { background: var(--s3-soft); color: var(--s3); }
+  .left-over { color: var(--danger); font-weight: 700; }
+  .left-due { color: var(--warn); font-weight: 700; }
+  .left-done { color: var(--muted); }
+
+  .bar { display: inline-block; width: 70px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; vertical-align: middle; margin-right: 6px; }
+  .bar i { display: block; height: 100%; background: var(--s3); }
+
+  form.entry { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field select, select.inline, .filters input, .filters select {
+    width: 100%; padding: 7px 9px; border: 1px solid #cdd3dd; border-radius: 6px; font: inherit; background: #fff; color: var(--ink);
+  }
+  .field input:focus, .field select:focus { outline: 2px solid #9db8de; border-color: var(--brand); }
+  .formfoot { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .preview { font-size: 13px; color: var(--muted); }
+  .preview b { color: var(--ink); }
+  .btns { display: flex; gap: 8px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 7px 16px; border: 1px solid #cdd3dd; background: #fff; color: var(--ink); }
+  button.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
+  button.primary:hover { filter: brightness(1.08); }
+  button.small { padding: 3px 10px; font-size: 12px; }
+  button.danger { color: var(--danger); border-color: #efc4bf; }
+  button:hover { background-color: #f4f6f9; }
+  button.primary:hover { background-color: var(--brand); }
+  .editing-tag { display: none; font-size: 12px; font-weight: 700; color: var(--warn); background: var(--warn-soft); padding: 2px 8px; border-radius: 999px; }
+  .is-editing .editing-tag { display: inline-block; }
+  .msg { font-size: 13px; color: var(--danger); min-height: 1em; }
+
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filters select { width: auto; }
+  .filters input { width: 180px; }
+  select.inline { width: auto; padding: 3px 6px; font-size: 13px; }
+
+  footer { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  @media (max-width: 1000px) {
+    .cards { grid-template-columns: repeat(3, 1fr); }
+    .grid2 { grid-template-columns: 1fr; }
+    form.entry { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+    form.entry { grid-template-columns: 1fr 1fr; }
+    header { padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>민원 처리 현황판</h1>
+  <div class="sub">도로안전부 · 도로점용업무 &nbsp;|&nbsp; 기준일 <span id="today"></span></div>
+</header>
+
+<main>
+  <!-- 요약 카드 -->
+  <section class="cards" id="cards"></section>
+
+  <section class="grid2">
+    <!-- 기한 임박 목록 -->
+    <div class="panel">
+      <h2>기한 임박 목록 <span class="hint">미완료 건 중 남은 기한 3일 이내·기한초과, 처리기한 빠른 순</span></h2>
+      <div class="scroll"><table id="dueTable"></table></div>
+    </div>
+    <!-- 유형별 처리현황 -->
+    <div class="panel">
+      <h2>유형별 처리현황</h2>
+      <div class="scroll"><table id="typeTable"></table></div>
+    </div>
+  </section>
+
+  <!-- 입력 폼 -->
+  <section class="panel" id="formPanel">
+    <h2><span>민원 입력 <span class="editing-tag" id="editingTag">수정 중</span></span></h2>
+    <form class="entry" id="entryForm" autocomplete="off">
+      <div class="field"><label for="fNo">접수번호</label><input id="fNo" required placeholder="예: 2026-0419"></div>
+      <div class="field"><label for="fDate">접수일</label><input id="fDate" type="date" required></div>
+      <div class="field"><label for="fName">민원인 성명</label><input id="fName" required placeholder="성명 또는 업체명"></div>
+      <div class="field"><label for="fPhone">연락처</label><input id="fPhone" placeholder="010-0000-0000"></div>
+      <div class="field"><label for="fType">민원유형</label><select id="fType"></select></div>
+      <div class="field"><label for="fStatus">상태</label><select id="fStatus"></select></div>
+      <div class="formfoot">
+        <div>
+          <div class="preview" id="preview"></div>
+          <div class="msg" id="msg"></div>
+        </div>
+        <div class="btns">
+          <button type="button" id="cancelBtn" style="display:none">취소</button>
+          <button type="submit" class="primary" id="submitBtn">등록</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- 전체 목록 -->
+  <section class="panel">
+    <h2>
+      <span>전체 민원 목록 <span class="hint" id="listCount"></span></span>
+      <span class="filters">
+        <select id="filterType"><option value="">전체 유형</option></select>
+        <select id="filterStatus"><option value="">전체 상태</option></select>
+        <input id="search" placeholder="접수번호·민원인 검색">
+      </span>
+    </h2>
+    <div class="scroll"><table id="listTable"></table></div>
+  </section>
+</main>
+
+<footer>
+  <span>입력한 데이터는 이 PC의 브라우저에 저장됩니다. 브라우저 데이터를 지우면 함께 삭제됩니다.</span>
+  <button type="button" class="small" id="resetBtn">샘플 데이터로 초기화</button>
+</footer>
+
+<script>
+// ===== 기준 정보 =====
+const TYPES = [
+  ["점용허가 신청·문의", 14],
+  ["점용료 이의·감면", 14],
+  ["무단점용 신고", 7],
+  ["허가 연장·변경", 14],
+  ["기타", 7],
+];
+const TYPE_DAYS = Object.fromEntries(TYPES);
+const STATUSES = ["접수", "처리중", "완료"];
+const STATUS_CLASS = { "접수": "b-s1", "처리중": "b-s2", "완료": "b-s3" };
+const DUE_DAYS = 3;            // 임박 기준(일)
+const KEY = "minwon-board-v1"; // 브라우저 저장 키
+
+// 더미 데이터(더미데이터.csv와 동일, 처리기한은 자동 계산)
+const SEED = [
+  ["2026-0401","2026-10-20","김도윤","010-2381-4402","점용허가 신청·문의","완료"],
+  ["2026-0402","2026-10-22","(주)한빛통신","02-555-0192","무단점용 신고","완료"],
+  ["2026-0403","2026-10-27","이수진","010-7720-1185","점용료 이의·감면","처리중"],
+  ["2026-0404","2026-10-28","(주)대성가스","031-778-2210","허가 연장·변경","처리중"],
+  ["2026-0405","2026-10-29","박준혁","010-9043-6617","점용허가 신청·문의","처리중"],
+  ["2026-0406","2026-11-02","최민서","010-3356-7781","무단점용 신고","접수"],
+  ["2026-0407","2026-11-03","정하늘","010-6612-0934","기타","완료"],
+  ["2026-0408","2026-11-04","강서연","010-4478-2290","무단점용 신고","처리중"],
+  ["2026-0409","2026-11-05","(주)그린주유소","031-762-4471","점용허가 신청·문의","접수"],
+  ["2026-0410","2026-11-05","윤재원","010-8821-5530","기타","접수"],
+  ["2026-0411","2026-11-06","한지우","010-2290-6648","점용료 이의·감면","처리중"],
+  ["2026-0412","2026-11-06","(주)미래전력","02-3442-8800","허가 연장·변경","완료"],
+  ["2026-0413","2026-11-09","오승민","010-5517-3302","무단점용 신고","접수"],
+  ["2026-0414","2026-11-09","서예린","010-6630-9915","점용허가 신청·문의","접수"],
+  ["2026-0415","2026-11-10","(주)하나광고","031-791-3365","허가 연장·변경","접수"],
+  ["2026-0416","2026-11-10","임태호","010-1148-7726","점용료 이의·감면","접수"],
+  ["2026-0417","2026-11-11","배소율","010-9925-4418","기타","접수"],
+  ["2026-0418","2026-11-11","신동현","010-3384-5506","점용허가 신청·문의","접수"],
+].map(([no, date, name, phone, type, status]) => ({ no, date, name, phone, type, status }));
+
+// ===== 날짜 계산 =====
+const DAY = 864e5;
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function toUTC(s) { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); }
+function addDays(s, n) { return new Date(toUTC(s) + n * DAY).toISOString().slice(0, 10); }
+function deadlineOf(r) { return addDays(r.date, TYPE_DAYS[r.type] ?? 7); }
+function daysLeft(r) { return Math.round((toUTC(deadlineOf(r)) - toUTC(todayStr())) / DAY); }
+function judge(r) {               // "over" | "due" | null
+  if (r.status === "완료") return null;
+  const d = daysLeft(r);
+  if (d < 0) return "over";
+  if (d <= DUE_DAYS) return "due";
+  return null;
+}
+function leftText(r) {
+  if (r.status === "완료") return '<span class="left-done">완료</span>';
+  const d = daysLeft(r);
+  if (d < 0) return `<span class="left-over">${-d}일 초과</span>`;
+  if (d === 0) return '<span class="left-due">오늘 마감</span>';
+  return d <= DUE_DAYS ? `<span class="left-due">D-${d}</span>` : `D-${d}`;
+}
+function weekday(s) { return "일월화수목금토"[new Date(toUTC(s)).getUTCDay()]; }
+
+// ===== 저장 =====
+function load() {
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s) return JSON.parse(s);
+  } catch (e) {}
+  return SEED.map(r => ({ ...r }));
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(data)); }
+  catch (e) { alert("브라우저에 저장하지 못했습니다. 이 창을 닫으면 입력 내용이 사라질 수 있습니다."); }
+}
+let data = load();
+save();
+
+// ===== 화면 =====
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const statusBadge = s => `<span class="badge ${STATUS_CLASS[s]}">${s}</span>`;
+const judgeBadge = j => j === "over" ? '<span class="badge b-over">기한초과</span>' : j === "due" ? '<span class="badge b-due">임박</span>' : "";
+
+function renderCards() {
+  const count = s => data.filter(r => r.status === s).length;
+  const items = [
+    ["전체", data.length, "var(--brand)"],
+    ["접수", count("접수"), "var(--s1)"],
+    ["처리중", count("처리중"), "var(--s2)"],
+    ["완료", count("완료"), "var(--s3)"],
+    ["임박", data.filter(r => judge(r) === "due").length, "var(--warn)"],
+    ["기한초과", data.filter(r => judge(r) === "over").length, "var(--danger)"],
+  ];
+  $("cards").innerHTML = items.map(([label, n, c]) =>
+    `<div class="card" style="--c:${c}"><div class="label">${label}</div><div class="num">${n}<small>건</small></div></div>`).join("");
+}
+
+function renderDue() {
+  const rows = data.filter(judge).sort((a, b) => deadlineOf(a).localeCompare(deadlineOf(b)) || a.no.localeCompare(b.no));
+  const head = "<thead><tr><th>구분</th><th>접수번호</th><th>민원인</th><th>민원유형</th><th>상태</th><th>처리기한</th><th class='n'>남은 기한</th></tr></thead>";
+  const body = rows.length
+    ? rows.map(r => `<tr class="row-${judge(r)}"><td>${judgeBadge(judge(r))}</td><td>${esc(r.no)}</td><td>${esc(r.name)}</td><td>${esc(r.type)}</td><td>${statusBadge(r.status)}</td><td>${deadlineOf(r)}</td><td class="n">${leftText(r)}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">기한이 임박하거나 지난 민원이 없습니다.</td></tr>`;
+  $("dueTable").innerHTML = head + "<tbody>" + body + "</tbody>";
+}
+
+function renderTypes() {
+  const head = `<thead><tr><th>민원유형</th><th class="n">기한</th>${STATUSES.map(s => `<th class="n">${s}</th>`).join("")}<th class="n">합계</th><th class="n">임박·초과</th><th>완료율</th></tr></thead>`;
+  const line = (label, list, days) => {
+    const c = s => list.filter(r => r.status === s).length;
+    const done = c("완료"), total = list.length, alert = list.filter(judge).length;
+    const pct = total ? Math.round(done / total * 100) : 0;
+    return `<td>${label}</td><td class="n">${days}</td>${STATUSES.map(s => `<td class="n">${c(s)}</td>`).join("")}<td class="n"><b>${total}</b></td>` +
+      `<td class="n">${alert ? `<span class="left-${list.some(r => judge(r) === "over") ? "over" : "due"}">${alert}</span>` : 0}</td>` +
+      `<td><span class="bar"><i style="width:${pct}%"></i></span>${pct}%</td>`;
+  };
+  const body = TYPES.map(([t, d]) => `<tr>${line(esc(t), data.filter(r => r.type === t), d + "일")}</tr>`).join("");
+  $("typeTable").innerHTML = head + "<tbody>" + body + "</tbody><tfoot><tr>" + line("합계", data, "") + "</tr></tfoot>";
+}
+
+function renderList() {
+  const ft = $("filterType").value, fs = $("filterStatus").value, q = $("search").value.trim().toLowerCase();
+  const rows = data
+    .filter(r => (!ft || r.type === ft) && (!fs || r.status === fs) && (!q || r.no.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.no.localeCompare(a.no));
+  $("listCount").textContent = `${rows.length}건 / 전체 ${data.length}건`;
+  const head = "<thead><tr><th>접수번호</th><th>접수일</th><th>민원인</th><th>연락처</th><th>민원유형</th><th>상태</th><th>처리기한</th><th class='n'>남은 기한</th><th></th><th>관리</th></tr></thead>";
+  const body = rows.length ? rows.map(r => {
+    const j = judge(r);
+    const sel = `<select class="inline" data-status="${esc(r.no)}">${STATUSES.map(s => `<option${s === r.status ? " selected" : ""}>${s}</option>`).join("")}</select>`;
+    return `<tr class="${j ? "row-" + j : ""}"><td>${esc(r.no)}</td><td>${r.date}</td><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.type)}</td>` +
+      `<td>${sel}</td><td>${deadlineOf(r)}</td><td class="n">${leftText(r)}</td><td>${judgeBadge(j)}</td>` +
+      `<td><button class="small" data-edit="${esc(r.no)}">수정</button> <button class="small danger" data-del="${esc(r.no)}">삭제</button></td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="empty">조건에 맞는 민원이 없습니다.</td></tr>`;
+  $("listTable").innerHTML = head + "<tbody>" + body + "</tbody>";
+}
+
+function renderAll() { renderCards(); renderDue(); renderTypes(); renderList(); }
+
+// ===== 입력 폼 =====
+let editingNo = null;
+
+function updatePreview() {
+  const date = $("fDate").value, type = $("fType").value;
+  $("preview").innerHTML = date
+    ? `처리기한 <b>${addDays(date, TYPE_DAYS[type])} (${weekday(addDays(date, TYPE_DAYS[type]))})</b> — 접수일 + ${TYPE_DAYS[type]}일 자동 계산`
+    : "접수일을 넣으면 처리기한이 자동 계산됩니다.";
+}
+
+function resetForm() {
+  editingNo = null;
+  $("entryForm").reset();
+  $("fDate").value = todayStr();
+  $("fStatus").value = "접수";
+  $("submitBtn").textContent = "등록";
+  $("cancelBtn").style.display = "none";
+  $("formPanel").classList.remove("is-editing");
+  $("msg").textContent = "";
+  updatePreview();
+}
+
+function startEdit(no) {
+  const r = data.find(x => x.no === no);
+  if (!r) return;
+  editingNo = no;
+  $("fNo").value = r.no; $("fDate").value = r.date; $("fName").value = r.name;
+  $("fPhone").value = r.phone; $("fType").value = r.type; $("fStatus").value = r.status;
+  $("submitBtn").textContent = "수정 저장";
+  $("cancelBtn").style.display = "";
+  $("formPanel").classList.add("is-editing");
+  $("msg").textContent = "";
+  updatePreview();
+  $("formPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("fName").focus({ preventScroll: true });
+}
+
+$("entryForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const rec = {
+    no: $("fNo").value.trim(), date: $("fDate").value, name: $("fName").value.trim(),
+    phone: $("fPhone").value.trim(), type: $("fType").value, status: $("fStatus").value,
+  };
+  if (!rec.no || !rec.date || !rec.name) { $("msg").textContent = "접수번호, 접수일, 민원인 성명은 꼭 입력해 주세요."; return; }
+  if (data.some(r => r.no === rec.no && r.no !== editingNo)) { $("msg").textContent = `접수번호 ${rec.no}은(는) 이미 있습니다.`; return; }
+  if (editingNo) data = data.map(r => r.no === editingNo ? rec : r);
+  else data.push(rec);
+  save(); resetForm(); renderAll();
+});
+$("cancelBtn").addEventListener("click", resetForm);
+$("fDate").addEventListener("input", updatePreview);
+$("fType").addEventListener("change", updatePreview);
+
+// ===== 목록 동작 =====
+$("listTable").addEventListener("change", e => {
+  const no = e.target.dataset.status;
+  if (no === undefined) return;
+  const r = data.find(x => x.no === no);
+  if (r) { r.status = e.target.value; save(); renderAll(); }
+});
+$("listTable").addEventListener("click", e => {
+  const ed = e.target.dataset.edit, del = e.target.dataset.del;
+  if (ed !== undefined) startEdit(ed);
+  if (del !== undefined && confirm(`접수번호 ${del} 민원을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) {
+    data = data.filter(r => r.no !== del);
+    if (editingNo === del) resetForm();
+    save(); renderAll();
+  }
+});
+["filterType", "filterStatus"].forEach(id => $(id).addEventListener("change", renderList));
+$("search").addEventListener("input", renderList);
+$("resetBtn").addEventListener("click", () => {
+  if (!confirm("지금까지 입력한 내용을 모두 지우고 샘플 데이터 18건으로 되돌릴까요?")) return;
+  data = SEED.map(r => ({ ...r })); save(); resetForm(); renderAll();
+});
+
+// ===== 시작 =====
+const typeOpts = TYPES.map(([t, d]) => `<option value="${t}">${t} (${d}일)</option>`).join("");
+$("fType").innerHTML = typeOpts;
+$("filterType").innerHTML += TYPES.map(([t]) => `<option>${t}</option>`).join("");
+$("fStatus").innerHTML = STATUSES.map(s => `<option>${s}</option>`).join("");
+$("filterStatus").innerHTML += STATUSES.map(s => `<option>${s}</option>`).join("");
+$("today").textContent = `${todayStr()} (${weekday(todayStr())})`;
+resetForm();
+renderAll();
+</script>
+</body>
+</html>
